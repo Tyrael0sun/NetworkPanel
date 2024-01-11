@@ -1,6 +1,5 @@
 <template>
-  <div class="radius" :style="{ borderRadius: 'var(--el-border-radius-round)' }"
-    style="max-width: 800px;height:fit-content;display: block;margin:0 auto;background-color:#ffffff;padding:2%">
+  <div class="radius card" :style="{ borderRadius: 'var(--el-border-radius-round)' }">
     <div style="margin-top: 10px;margin-left: 10px;margin-right: 10px;">
       <div class="slider-demo-block">
         <span class="font-background">测速地址：</span>
@@ -18,12 +17,18 @@
           </template>
         </el-select>
       </div>
-      <div class="slider-demo-block" style="margin-top:20px;">
+      <div style="margin-top:20px;">
         <span class="font-background">线程数：{{ threadNum }}</span>
         <el-slider :show-tooltip="false" :min="1" :max='64' v-model="threadNum" />
       </div>
-      <el-switch v-model="runBackground" active-text="保持后台运行" />
-      <br>
+      <div style="width: 100%;height:32px;">
+        <div style="float: left;">
+          <el-switch v-model="runBackground" active-text="保持后台运行" />
+        </div>
+        <div style="float: right;">
+          <el-switch v-model="autoStart" active-text="自动运行" />
+        </div>
+      </div>
       <div class="ItemContainer">
         <div class="showItem">
           <span class="font-background" style="font-size: larger;">总流量</span>
@@ -53,7 +58,7 @@
             <br>
             每月&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ state.predict.mon }}
           </el-popover>
-          <div class="state-icon" style="color: rgb(9,194,222);">
+          <div class="state-icon state-icon-main">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
               class="h-15 w-15 float-right pt-3">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
@@ -61,10 +66,13 @@
               </path>
             </svg>
           </div>
-          <el-text class="font-data" style="color: rgb(9,194,222);">{{ state.show.speed }}</el-text>
+          <el-text class="font-data state-icon-main">{{ state.show.speed }}</el-text>
         </div>
         <div class="showItem">
           <span class="font-background" style="font-size: larger;">带宽</span>
+          <el-text size="small" class="mx-1">{{ state.maxSpeed ? '/' + formatter(state.maxSpeed, 2, [0, 0, 0, 0, 0, 0]) : ""
+          }}</el-text>
+          <el-button type="primary" style="height: 15px;" :icon="Edit" link @click="EditSpeedVisible = true" />
           <div class="state-icon">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
               class="h-15 w-15 float-right pt-3">
@@ -77,7 +85,7 @@
 
       <div style="width: fit-content;display: block;margin-top:2ch;margin-left: auto;margin-right: auto;">
         <a class="button" v-if="!isRunning && !state.isChecking" @click="tryStart">
-          <svg t="1694957757562" fill="white" style="width: 50px;margin-left: 10px;margin-top: -30px;"
+          <svg t="1694957757562" class="svg-icon"
             viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4036" width="200" height="200">
             <path
               d="M823.8 603.5l-501.2 336c-50.7 34-119.3 20.4-153.2-30.2-12.2-18.2-18.7-39.6-18.7-61.5v-672c0-61 49.5-110.4 110.4-110.4 21.9 0 43.3 6.5 61.5 18.7l501.1 336c50.7 34 64.2 102.6 30.2 153.2-7.8 11.9-18.1 22.2-30.1 30.2z m0 0"
@@ -85,11 +93,11 @@
           </svg>
         </a>
         <a class="button" v-if="state.isChecking">
-          <el-icon style="margin-top: 40px" :size="60" class="is-loading">
+          <el-icon :size="60" class="is-loading el-icon-loading">
             <Loading />
           </el-icon>
         </a>
-        <a class="button" v-if="isRunning" @click="isRunning = false">
+        <a class="button" v-if="isRunning && !state.isChecking" @click="isRunning = false">
           <svg t="1694958268344" fill="white" style="width: 80px;margin-top: -30px;" viewBox="0 0 1024 1024" version="1.1"
             xmlns="http://www.w3.org/2000/svg" p-id="7667" width="200" height="200">
             <path
@@ -100,6 +108,8 @@
       </div>
       <el-button style="float: left;margin-top: -20px;margin-right: 3px" type="primary" :icon="Histogram" link
         @click="showMark.show = true" />
+        <el-button style="float: left;margin-top: -20px;margin-left: 39px" type="primary" :icon="FullScreen" link
+        @click="isFullScreen = true" />
       <el-button style="float: right;margin-top: -20px;margin-right: 3px" type="primary" :icon="TrendCharts" link
         v-if="!chartShow" @click="chartShow = true" />
       <el-button style="float: right;margin-top: -20px;margin-right: 3px" type="primary" :icon="Hide" link
@@ -187,6 +197,33 @@
       </span>
     </template>
   </el-dialog>
+  <el-dialog style="width: 90%;max-width: 350px;" v-model="EditSpeedVisible" title="设置带宽上限">
+    <el-form>
+      <div class="mt-4">
+        <el-input type="number" min='1' v-model="maxSpeedInput.num" autocomplete="off" placeholder="留空则无上限"
+          class="input-with-select">
+          <template #append>
+            <el-select v-model="maxSpeedInput.type" placeholder="Select" style="width: 80px">
+              <el-option label="Mbps" value="Mbps" />
+              <el-option label="Gbps" value="Gbps" />
+            </el-select>
+          </template>
+        </el-input>
+        <br><br>
+        <el-alert title="注意：" type="warning">
+          浏览器会使用缓存策略<br>只能限制平均速度，无法限制峰值速度!<br>部分链接无法限速，请使用其它限速方法
+        </el-alert>
+      </div>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="EditSpeedVisible = false">取消</el-button>
+        <el-button type="primary" @click="editSpeedUse()">
+          确定
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
   <MarkUI :show="showMark" :loginInfo="loginInfo" />
   <audio v-if="isMobile && !isIOS && !isMiuiBrowser && runBackground" @canplay="() => { if (isRunning) audioDom.play() }"
     @pause="() => { if (runBackground) isRunning = false }" @play="isRunning = true" controls loop ref="audioDom"
@@ -198,6 +235,7 @@
     style="display:none">
     <source :src="iosSound" type="audio/mpeg">
   </audio>
+  <FullScreenUI v-model="isFullScreen" :isRunning="isRunning" :state="state" />
 </template>
 
 <script lang="ts" setup>
@@ -205,15 +243,15 @@ import type { EChartsType } from "echarts";
 import iosSound from "../assets/ios.mp3";
 import andoridSound from "../assets/android.mp3";
 const props = defineProps({
-  isVisible: Boolean,
-  IPinfo: Object
+  isVisible: Boolean
 })
 import { ElMessage } from 'element-plus'
 import nodesJson from "../assets/nodes.json"
-import { Link, Edit, Delete, CircleCheck, Loading, CopyDocument, TrendCharts, Hide, Histogram, Calendar } from '@element-plus/icons-vue'
-import { ref, watch, type Ref, reactive } from 'vue'
+import { Link, Edit, Delete, CircleCheck, Loading, CopyDocument, TrendCharts, Hide, Histogram, Calendar,FullScreen } from '@element-plus/icons-vue'
+import { ref, watch,watchEffect, type Ref, reactive } from 'vue'
 import { toClipboard } from '@soerenmartius/vue3-clipboard'
 import MarkUI from './Mark.vue'
+import FullScreenUI from './FullScreen.vue'
 
 const showMark = ref({ show: false })
 const customNodes = reactive(localStorage.customNodes ? JSON.parse(localStorage.customNodes) : [])
@@ -276,17 +314,34 @@ const state = reactive({
   startUse: 0,
   startTime: 0,
   maxUse: localStorage.maxUse ? Number(localStorage.maxUse) : 0,
+  maxSpeed: localStorage.maxSpeed ? Number(localStorage.maxSpeed) : 0,
 })
 const isRunning = ref(false)
+const isFullScreen = ref(false)
 const loginInfo = reactive({ AccessToken: localStorage.AccessToken ? localStorage.AccessToken : "" })
 const chartShow = ref(localStorage.chartShow ? localStorage.chartShow === 'true' : false)
 const threadNum = ref(localStorage.threadNum ? Number(localStorage.threadNum) : 8)
 const runBackground = ref(localStorage.runBackground ? localStorage.runBackground === 'true' : false)
+const autoStart = ref(localStorage.autoStart ? localStorage.autoStart === 'true' : false)
 const runUrl = ref(localStorage.url ? localStorage.url : nodes.value[0].options[0].value)
 
 var tasks: Array<number> = []
 
+onMounted(() => {
+  // setTimeout(() => {
+  //   ElMessage.warning({
+  //     dangerouslyUseHTMLString: true,
+  //     message: '本站将不再内置大厂链接 建议使用自定义节点功能',
+  //   })
+  // },500)
+  autoStart.value&&tryStart();
+})
+
 const tryStart = async () => {
+  if(runUrl.value.startsWith("NetworkPanelApi://")) {
+    isRunning.value = true
+    return
+  }
   state.isChecking = true
   const urlStatus = await checkUrl(runUrl.value)
   state.isChecking = false
@@ -299,16 +354,19 @@ const tryStart = async () => {
     isRunning.value = true
   }
 }
-
+const block_list=["ljxnet.cn","netart.cn",".gov.cn"]
 const checkUrl = async (url: string) => {
   var status = true
   let info = ''
   try {
     let structUrl = new URL(url)
-    if (structUrl.host.indexOf("ljxnet.cn") + structUrl.host.indexOf("netart.cn") != -2) {
+    if (block_list.some((i)=>structUrl.host.endsWith(i))) {
       throw '你不对劲，我要拿小本本把你记下来然后交给警察蜀黍！'
     }
-    const response = await fetch(url, { cache: "no-store", mode: 'cors', referrerPolicy: 'no-referrer' })
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(url, { cache: "no-store", mode: 'cors', referrerPolicy: 'no-referrer' ,signal: controller.signal})
     if (response.status == 404) throw "资源响应异常" + response.status
     if (!response.body) throw "资源响应异常 Nobody"
     const reader = response.body.getReader();
@@ -326,9 +384,32 @@ const checkUrl = async (url: string) => {
   }
 }
 
+let solvedRunUrl = ''
+async function apiSolver(){
+  if(!runUrl.value.startsWith("NetworkPanelApi://")){
+    solvedRunUrl = runUrl.value
+    return
+  }
+  let host=runUrl.value.split("NetworkPanelApi://")[1]
+  let resp:any = await fetch(import.meta.env.VITE_API_URL+"url.ajax?"+new URLSearchParams({host:host,cache:window.location.host}), {
+      mode: "cors",
+      redirect: "follow",
+      referrerPolicy: "no-referrer"
+    });
+  resp = await resp.json()
+  if(resp['status']!=0){
+    isRunning.value=false;
+    return
+  }
+  solvedRunUrl = resp['url']
+}
 watch(isRunning, async (newState, oldState) => {
   clearChart()
   if (newState) {
+    state.isChecking = true
+    await apiSolver()
+    state.isChecking = false
+    if(!isRunning.value) return
     if (state.maxUse && state.bytesUsed >= state.maxUse) {
       state.bytesUsed = 0;
       state.logged = 0;
@@ -341,11 +422,14 @@ watch(isRunning, async (newState, oldState) => {
     for (let i = 0; i < threadNum.value; i++)startThread(i)
     tasks.push(setInterval(frameEvent, 16))
     tasks.push(setInterval(uploadLog, 60000))
+    tasks.push(setInterval(apiSolver, 60000))
     secEvent()
     tasks.push(setInterval(secEvent, 1000))
     runBackground.value ? audioDom.value?.play() : ''
   } else {
+    tasks.map((i) => console.log(i))
     tasks.map((i) => clearInterval(i))
+    tasks = []
     uploadLog()
     audioDom.value?.pause()
     var speed = (state.bytesUsed - state.startUse) / (new Date().getTime() / 1000 - state.startTime)
@@ -364,30 +448,25 @@ async function uploadLog() {
 
   state.logged = state.bytesUsed
   state.lastLogTime = now
-  if (loginInfo.AccessToken) {
-    let resp = await fetch('https://api.netart.cn/app/network-panel/', {
+  // if (loginInfo.AccessToken) {
+    let resp = await fetch(import.meta.env.VITE_API_URL+"log", {
       method: "POST",
       mode: "cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
       redirect: "follow",
       referrerPolicy: "no-referrer",
       body: JSON.stringify({
-        action: 'log',
         AccessToken: loginInfo.AccessToken,
         url: runUrl.value,
         threadNum: threadNum.value,
         used: num,
-        time: time,
-        IPinfo: props.IPinfo
+        time: time
       })
     });
     resp = await resp.json()
     if (resp.status == -1) {
       loginInfo.AccessToken = ''
     }
-  }
+  // }
 }
 
 watch(props, async (newState, oldState) => {
@@ -416,12 +495,18 @@ watch(chartShow, async (newState, oldState) => {
 
 watch(runUrl, async (newState, oldState) => {
   localStorage.url = newState
+  if (isRunning.value) {
+    apiSolver()
+  }
 })
 
 watch(loginInfo, async (newState, oldState) => {
   localStorage.AccessToken = newState.AccessToken
 })
 
+watchEffect(() => {
+  localStorage.autoStart = autoStart.value;
+})
 const copyUrl = () => {
   toClipboard(runUrl.value).then(() => {
     ElMessage.success({
@@ -520,9 +605,23 @@ function formatter(num: number, desIndex: number, flo: Array<number>) {
   return cnum.toFixed(flo[total_index]) + describe[total_index];
 }
 
+const speedCtr=()=>{
+  if(state.bytesUsed-state.recordUse>state.maxSpeed/8){
+    return new Promise((resolve)=>{
+      setTimeout(()=>{
+        resolve(0)
+      },1000-(new Date().getTime()%1000))
+    })
+  }
+}
+
 async function startThread(index: number) {
   try {
-    var _url = runUrl.value
+    if(solvedRunUrl==""){
+      isRunning.value=false
+      return
+    }
+    let _url=solvedRunUrl
     const response = await fetch(_url, { cache: "no-store", mode: 'cors', referrerPolicy: 'no-referrer' })
     if (!response.body) throw "Nobody"
     let contentLength = response.headers.get('content-length')
@@ -531,9 +630,10 @@ async function startThread(index: number) {
     const reader = response.body.getReader();
     let decodeLength = 0
     while (true) {
+      if(state.maxSpeed)await speedCtr()
       const { value } = await reader.read();
       let chunkLength = value?.length
-      if (!chunkLength || _url != runUrl.value) {
+      if (!chunkLength || solvedRunUrl != _url) {
         startThread(index);
         break;
       }
@@ -557,6 +657,7 @@ async function startThread(index: number) {
 const EditTableVisible = ref(false)
 const addTableVisible = ref(false)
 const EditMaxVisible = ref(false)
+const EditSpeedVisible = ref(false)
 const addForm = ref({
   label: '',
   value: '',
@@ -610,9 +711,33 @@ const editMaxUse = () => {
   maxUseInput.value.num = null
   EditMaxVisible.value = false
 }
-var isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent)
+
+const maxSpeedInput: Ref<{
+  num: number | null;
+  type: "Gbps" | "Mbps" | "Kbps";
+}> = ref({
+  num: null,
+  type: 'Mbps',
+})
+
+const editSpeedUse = () => {
+  var map = {
+    "Kbps": 1024 ,
+    "Mbps": 1024 * 1024,
+    "Gbps": 1024 * 1024 * 1024
+  }
+  var tmp = 0
+  if (maxSpeedInput.value.num) {
+    tmp = Math.floor(maxSpeedInput.value.num * map[maxSpeedInput.value.type])
+  }
+  state.maxSpeed = tmp
+  localStorage.maxSpeed = tmp
+  maxSpeedInput.value.num = null
+  EditSpeedVisible.value = false
+}
+var isMobile = /Mobi|Android|iPhone|Macintosh/i.test(navigator.userAgent)
 var isMiuiBrowser = /MiuiBrowser/i.test(navigator.userAgent)
-var isIOS = /iPhone/i.test(navigator.userAgent)
+var isIOS = /iPhone|Macintosh/i.test(navigator.userAgent)
 
 const audioDom: Ref<any> = ref(null);
 
@@ -675,10 +800,11 @@ onMounted(() => {
       }
     ],
     grid: {
-      x: 50,
+      x: 0,
       y: 40,
       x2: 8,
-      y2: 10
+      y2: 10,
+      containLabel: true
     },
   }
 
@@ -725,12 +851,26 @@ onUnmounted(() => {
   }
 });
 </script>
-<style>
+<style scoped>
 .ItemContainer {
   column-count: 3;
   margin-top: 10px;
 }
 
+.card{
+  max-width: 800px;
+  height:fit-content;
+  display: block;
+  margin:0 auto;
+  background-color:#ffffff;
+  padding:2%
+}
+
+@media (prefers-color-scheme: dark) {
+    .card {
+        background-color:rgb(18,18,18);
+    }
+}
 @media screen and (max-width: 800px) {
   .ItemContainer {
     column-count: 1;
@@ -750,7 +890,7 @@ onUnmounted(() => {
   font-size: 30px;
 }
 
-.font-background {
+.font-background{
   color: #344357;
   font-size: 14px;
 }
@@ -762,18 +902,52 @@ onUnmounted(() => {
   margin-top: -10px;
   width: 40px;
   height: 20px;
+  color: rgb(96,98,102);
 }
+
+.state-icon-main{
+  color: rgb(9,194,222);
+}
+
+.svg-icon{
+  fill:rgb(255,255,255);
+  width: 50px;
+  margin-left: 10px;
+  margin-top: -30px;
+}
+
+.el-select-dropdown__wrap{
+  max-height: 60vh;
+}
+.el-icon-loading{
+  margin-top: 40px;
+  color:rgb(255,255,255);
+}
+@media (prefers-color-scheme: dark) {
+    .showItem {
+      border: 1px solid rgb(61,63,66) !important;
+    }
+    .state-icon{
+      color: rgb(165,167,172);
+    }
+    .state-icon-main{
+      color: rgb(30,105,131);
+    }
+    .font-background{
+        color: rgb(193,206,230);
+    }
+    .svg-icon{
+      fill:rgb(220,220,220);
+    }
+}
+
+
 
 .button {
   display: block;
   text-decoration: none;
   background-color: #485bed;
-  /* background-image: -webkit-gradient(linear, left top, left bottom, from(#f7f7f7), to(#e7e7e7)); */
   background-image: -webkit-linear-gradient(145deg, #485bed, #6576ff);
-  /* background-image: linear-gradient(145deg,
-                    #00e4ca 10%, #0026a4 10%,
-                    #00dbe0 10%, #ff0000 10%); */
-
   font-size: 30px;
   font-weight: 700 !important;
   margin: 36px;
@@ -784,5 +958,4 @@ onUnmounted(() => {
   line-height: 144px;
   border-radius: 50%;
   box-shadow: 0px 3px 8px #485bed, inset 0px 2px 3px #6576ff;
-  /* border: solid 1px transparent; */
 }</style>

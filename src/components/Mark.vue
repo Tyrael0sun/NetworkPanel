@@ -61,7 +61,7 @@
       </div>
       <el-button style="width: 100%" @click="isShowMe=true">用户中心</el-button>
     </el-dialog>
-    <el-dialog style="width: 99vw;max-width: 500px;" v-model="isShowMe" title="用户中心">
+    <el-dialog align-center style="width: 99vw;max-width: 500px;" v-model="isShowMe" title="用户中心">
       <MyUI v-if="isShowMe" :loginInfo="props.loginInfo"/>
     </el-dialog>
 </template>
@@ -103,17 +103,12 @@ watch(show,(ns,os)=>{
 
 })
 const mark:Ref<any>=ref([])
-const api =async(args:object)=>{
-  const response = await fetch('https://api.netart.cn/app/network-panel/', {
-    method: "POST",
+const api =async(args:string[][])=>{
+  args.push(["cache", window.location.host])
+  const response = await fetch(import.meta.env.VITE_API_URL+"get.ajax?"+new URLSearchParams(args).toString(), {
     mode: "cors",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
     redirect: "follow",
-    referrerPolicy: "no-referrer",
-    body: JSON.stringify(args)
+    referrerPolicy: "no-referrer"
   })
   const resp=await response.json()
   return resp
@@ -131,7 +126,7 @@ const refreshMark=async()=>{
   isLoading.value=true
   mark.value=[]
   try{
-    let rep=await api({"action":"get","grade":Number(grade.value),sortedBy:sortBy.value,"past":past.value})
+    let rep=await api([["grade",grade.value],['sorted_by',sortBy.value],["isPast",past.value?"true":"false"]])
     rep.data.forEach((element:any) => {
       let formatted
       if(sortBy.value=='allUsed'){
