@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import {ref,watch,onMounted, defineModel, watchEffect, computed} from 'vue'
+import {ref,watch,onMounted, defineModel, watchEffect, onUnmounted} from 'vue'
 import NoSleep from 'nosleep.js';
 const props=defineProps({
   state: { type: Object, required: true },
@@ -73,13 +73,23 @@ watchEffect(
 const time=ref("")
 const date=ref("")
 const dayToWeek = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-setInterval(()=>{
-    const datetime=new Date()
-    time.value=`${datetime.getHours().toString().padStart(2, '0')}:${datetime.getMinutes().toString().padStart(2, '0')}`
-    date.value=`${datetime.getFullYear()}-${datetime.getMonth()+1}-${datetime.getDate()} ${dayToWeek[datetime.getDay()]}`
-},1000)
+let task:number=0
+onMounted(()=>{
+    task=setInterval(()=>{
+        const datetime=new Date()
+        time.value=`${datetime.getHours().toString().padStart(2, '0')}:${datetime.getMinutes().toString().padStart(2, '0')}`
+        date.value=`${datetime.getFullYear()}-${datetime.getMonth()+1}-${datetime.getDate()} ${dayToWeek[datetime.getDay()]}`
+    },1000)
+})
+onUnmounted(()=>{
+    clearInterval(task)
+})
 </script>
 <style scoped>
+@font-face {
+	font-family: 'DingTalk';
+	src: url('../assets/DingTalk-simple.ttf') format('truetype');
+}
 .fullscreen {
     position: fixed;
     top: 0;
@@ -107,7 +117,7 @@ setInterval(()=>{
 
     }
     .right {
-        margin-top: -3vh;
+        margin-top: -1vh;
         height: 200px;
     }
 }
@@ -134,6 +144,7 @@ setInterval(()=>{
     top:50%;
     transform: translate(-50%, -50%);
     animation:standby 60s infinite alternate ease-in-out;
+    font-family: DingTalk;
 }
 @keyframes standby {
     0% {
